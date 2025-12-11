@@ -1,0 +1,19 @@
+# Archivos de datos
+*.csv
+*.xlsx
+*.xls
+*.txt
+
+# Carpetas de datos completas (opcional)
+data/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Entorno virtual
+venv/
+.env/
+
+# Archivos de logs
+*.log
