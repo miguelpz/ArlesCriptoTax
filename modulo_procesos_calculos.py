@@ -61,7 +61,7 @@ def procesar_df_con_fifo(df, fifo: CryptoFIFO):
         # ----------------------------------------------------
         # ✅ COMPRA
         # ----------------------------------------------------
-        if tipo == "COMPRA":
+        if tipo in ["COMPRA","REWARDS","STAKING","AIRDROP"]:
 
             if recibido_cantidad > 0:
                 precio_unitario = recibido_valor / recibido_cantidad
