@@ -119,8 +119,13 @@ def convert_no_stables_in_df(df):
         # Emitido
         if row["Emitido_Moneda"] and row["Emitido_Moneda"] and row["Emitido_Moneda"] not in ("EUR", "USD"):            
             if row["Emitido_Cantidad"] is not None and (pd.isna(row["Emitido_Valor_EUR"]) or row["Emitido_Valor_EUR"] == ""):
-                price = get_price_binance(row["Emitido_Moneda"],date_str)                                
-                df.at[idx, "Emitido_Valor_EUR"] = price * Decimal(str(row["Emitido_Cantidad"]))
+                if row["Recibido_Moneda"] and row["Recibido_Moneda"] and row["Recibido_Moneda"] not in ("EUR", "USD"): 
+                    price = get_price_binance(row["Emitido_Moneda"],date_str)                                
+                    df.at[idx, "Emitido_Valor_EUR"] = price * Decimal(str(row["Emitido_Cantidad"]))
+                else:
+                    print (f"VALOR DIRECTO --->  {str(idx)}")
+                    price =  Decimal(str(row["Recibido_Valor_EUR"]))
+                    df.at[idx, "Emitido_Valor_EUR"] = price   
 
         # Recibido
         if row["Recibido_Moneda"] and row["Recibido_Moneda"] and row["Recibido_Moneda"] not in ("EUR", "USD"):           
