@@ -48,9 +48,10 @@ def calcular_totales_base_ahorro(df: pd.DataFrame) -> dict:
 
         moneda = row.get("Emitido_Moneda")
         cantidad = row.get("Emitido_Cantidad")
+        operacion = row.get("Tipo")
 
         # Solo filas donde realmente se recibe una moneda
-        if moneda in (None, "", 0) or cantidad in (None, 0, "0"):
+        if operacion not in ["COMPRA","VENTA","PERMUTA"] and (moneda in (None, "", 0) or cantidad in (None, 0, "0")):
             continue
 
         anio = extraer_anio(row.get("UTC_Time"))
@@ -58,13 +59,20 @@ def calcular_totales_base_ahorro(df: pd.DataFrame) -> dict:
 
         if key not in totales:
             totales[key] = {
-                "n_ops_recibida": 0,
+                "n_ops_emitida": 0,
+                "v_emision_moneda": Decimal("0"),
                 "transmision": Decimal("0"),
                 "adquisicion": Decimal("0"),
+                "comision": Decimal("0"),
+                "comision_compra": Decimal("0"),
             }
 
         # Contar operación
-        totales[key]["n_ops_recibida"] += 1
+        totales[key]["n_ops_emitida"] += 1
+        
+        v_emision_moneda = row.get("Emitido_Valor_EUR")
+        if v_emision_moneda not in (None, ""):
+            totales[key]["v_emision_moneda"] += Decimal(str(v_emision_moneda))
 
         # ============================
         #   TRANSMISIÓN
@@ -82,11 +90,37 @@ def calcular_totales_base_ahorro(df: pd.DataFrame) -> dict:
         print(f"Un valor sumado a comision {moneda} cantidad {cantidad} y comision {str(comision_eur)}")
         # A) PERMUTAS → adquisición = Valor Adquisicion + comisión EUR
         if es_permuta_o_venta(row):
-            totales[key]["adquisicion"] += valor_adq_dec + comision_eur
+            totales[key]["adquisicion"] += valor_adq_dec
+            totales[key]["comision"] += comision_eur
 
         # B) COMPRAS → adquisición = comisión EUR
-        if es_compra(row) and comision_eur != Decimal("0"):
+        elif es_compra(row) and comision_eur != Decimal("0"):
             totales[key]["adquisicion"] += comision_eur
+            
+    for _, row in df.iterrows():
+        
+        if not es_compra(row):
+            continue
+            
+        moneda = row.get("Recibido_Moneda")
+        comision_eur = obtener_comision_eur(row)
+        
+        anio = extraer_anio(row.get("UTC_Time"))
+        key = (anio, moneda)
+        
+        if key not in totales:
+            totales[key] = {
+                "n_ops_emitida": 0,
+                "v_emision_moneda": Decimal("0"),
+                "transmision": Decimal("0"),
+                "adquisicion": Decimal("0"),
+                "comision": Decimal("0"),
+                "comision_compra": Decimal("0"),
+            }
+        print(f"*****************METO COMISION COMPRA********* -> {moneda} {anio} {comision_eur}" )
+        totales[key]["comision_compra"] += comision_eur      
+        
+             
 
     return totales
 
@@ -107,10 +141,11 @@ def generar_informe_txt_base_ahorro(totales: dict) -> str:
 
     for (anio, moneda) in claves_ordenadas:
         datos = totales[(anio, moneda)]
-        n_ops = datos["n_ops_recibida"]
+        n_ops = datos["n_ops_emitida"]
         tr = datos["transmision"]
         adq = datos["adquisicion"]
-
+        comisiones = datos["comision"]
+        comisiones_compra  = datos["comision_compra"]
         if anio != anio_actual:
             if anio_actual is not None:
                 lineas.append("")
@@ -119,21 +154,27 @@ def generar_informe_txt_base_ahorro(totales: dict) -> str:
             anio_actual = anio
 
         lineas.append(f"Moneda recibida: {moneda}")
-        lineas.append(f"  Número de operaciones en las que se recibe: {n_ops}")
+        lineas.append(f"  Número de operaciones en las que se emite: {n_ops}")
         lineas.append("")
         lineas.append("  Valor total de TRANSMISIÓN (EUR):")
-        lineas.append("    = sumatorio de 'Valor Transmision' en filas declarables donde se recibe esta moneda.")
+        lineas.append("    = sumatorio de 'Valor Transmision' en filas donde se emite esta moneda.")
         lineas.append(f"    => {tr}")
         lineas.append("")
         lineas.append("  Valor total de ADQUISICIÓN (EUR):")
-        lineas.append("    = PERMUTAS: Valor Adquisicion + Comision_Valor_EUR")
-        lineas.append("    + COMPRAS: solo Comision_Valor_EUR")
+        lineas.append("    = sumatorio de 'Valor Arquisición' en filas  donde se emite esta moneda.")
         lineas.append(f"    => {adq}")
-        gp = tr - adq
+        lineas.append("")
+        lineas.append("  Comision en operaciones (EUR):")
+        lineas.append("    = sumatorio de comisiones derivadas en operaciones en las que se emite esta moneda.")
+        lineas.append(f"    => {comisiones}")
+        lineas.append("")
+        lineas.append("  Comision en operaciones (EUR):")
+        lineas.append("    = sumatorio de comisiones derivadas en operaciones en las que se redibe esta moneda.")
+        lineas.append(f"    => {comisiones_compra}")       
+        gp = tr - (adq + comisiones + comisiones_compra)
         lineas.append("  Ganancia/Pérdida patrimonial (EUR):")
-        lineas.append("    = Transmisión - Adquisición")
+        lineas.append("    = Transmisión - (Adquisición + Comisiones emision + Comisiones recepción")
         lineas.append(f"    => {gp}")
-
         lineas.append("")
 
     return "\n".join(lineas)
