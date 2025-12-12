@@ -314,13 +314,13 @@ def parse_coinbase_csv(input_path: str) -> List[NormalizedRow]:
                     tracker="COINBASE",
                     tipo="VENTA",
                     emitido_moneda=asset,
-                    emitido_cantidad=qty,
+                    emitido_cantidad=abs(qty),
                     emitido_valor_eur="",
                     recibido_moneda=spot_currency,
-                    recibido_cantidad=subtotal_val,
+                    recibido_cantidad=abs(subtotal_val),
                     recibido_valor_eur="",
                     comision_moneda=spot_currency,
-                    comision_cantidad=fees,
+                    comision_cantidad=abs(fees),
                     comision_valor_eur="",
                     declarable="S"
                 ))
